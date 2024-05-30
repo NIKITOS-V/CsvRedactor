@@ -3,23 +3,44 @@ import os
 
 
 class FileParser:
-    TB = '\t'
-    NL = '\n'
-    Dir = f"{os.path.abspath(os.curdir)}\\Data"
 
     def __init__(self):
+        self.Dir = f"{os.path.abspath(os.curdir)}\\Data"
+
         self.FileCommandsDict = {
-            'read': [self.ReadFile, 2],
-            'create': [self.CreateFile, 2],
-            'remove': [self.RemoveFile, 2]
+            'read': [self.ReadFile, 2,
+                     {'Description': 'Выводит данные файла в консоль',
+                      'Required parameters': 'Имя файла'}
+                     ],
+            'create': [self.CreateFile, 2,
+                       {'Description': 'Создаёт файл в установленной директории',
+                        'Required parameters': 'Имя файла'}
+                       ],
+            'remove': [self.RemoveFile, 2,
+                       {'Description': 'Удаляет файл',
+                        'Required parameters': 'Имя файла'}
+                       ]
         }
 
-        self.ConsoleCommandDict = {
-            'exit': [self.Exit, 1],
-            'clear': [self.Clear, 1],
-            'cd': [self.ChangeDirectory, 2],
-            'md': [self.MakeDirectory, 2],
-            'rd': [self.RemoveDirectory, 2]
+        self.ConsoleCommandsDict = {
+            'exit': [self.Exit, 1, {'Description': 'Выводит данные файла в консоль'}],
+            'clear': [self.Clear, 1, {'Description': 'Очищает консоль'}],
+            'commands': [self.PrintCommandsList, 1, {'Description': 'Выводит список всех команд'}],
+            'dir': [self.PrintFilesIntoDirectory, 1, {'Description': 'Выводит список файлов в текущей директории'}],
+            'change_dir': [self.ChangeDirectory, 2,
+                           {'Description': 'Меняет директорию для работы',
+                            'Required parameters': 'Полный путь до директории',
+                            }
+                           ],
+            'create_dir': [self.MakeDirectory, 2,
+                           {'Description': 'Создаёт директорию',
+                            'Required parameters': 'Полный путь до директории'}
+                           ],
+            'remove_dir': [self.RemoveDirectory, 1,
+                           {'Description': 'Удаляет директорию текущую',
+                            'initial value': self.Dir}
+                           ],
+            'clear_dir': [self.ClearDirectory, 1, {'Description': 'Очищает директорию'}]
         }
 
         self.RunConsole = 1
@@ -36,8 +57,8 @@ class FileParser:
                 self.ConsoleError("The console cannot be empty")
 
             else:
-                try:
-                    Parameters = self.ConsoleCommandDict[UserInput[0]]
+                if UserInput[0] in self.ConsoleCommandsDict.keys():
+                    Parameters = self.ConsoleCommandsDict[UserInput[0]]
 
                     if Parameters[1] == 1:
                         Parameters[0]()
@@ -47,35 +68,37 @@ class FileParser:
                             self.ConsoleError("There is too little input data")
 
                         elif LenUserInput == Parameters[1]:
-                                Parameters[0](UserInput[1])
+                            Parameters[0](UserInput[1])
 
                         else:
                             self.ConsoleError("There is too many input data")
 
-                except KeyError:
+                else:
 
-                    Parameters = self.FileCommandsDict[UserInput[0]]
+                    if UserInput[0] in self.FileCommandsDict.keys():
+                        Parameters = self.FileCommandsDict[UserInput[0]]
 
-                    if LenUserInput < Parameters[1]:
-                        self.ConsoleError("There is too little input data")
+                        if LenUserInput < Parameters[1]:
+                            self.ConsoleError("There is too little input data")
 
-                    elif LenUserInput == Parameters[1]:
-                        FileName = UserInput[1].split('.')
+                        elif LenUserInput == Parameters[1]:
+                            FileName = UserInput[1].split('.')
 
-                        if len(FileName) == 2 and FileName[1] == 'csv':
+                            if len(FileName) == 2 and FileName[1] == 'csv':
 
-                            self.FileName = self.CreatePath(UserInput[1])
+                                self.FileName = self.CreatePath(UserInput[1])
 
-                            try:
                                 Parameters[0]()
 
-                            except KeyError:
-                                self.ConsoleError("Unknown command")
+
+                            else:
+                                self.ConsoleError("Unknown file format")
+
                         else:
-                            self.ConsoleError("Unknown file format")
+                            self.ConsoleError("There is too many input data")
 
                     else:
-                        self.ConsoleError("There is too many input data")
+                        self.ConsoleError("Unknown command")
 
     def ReadFile(self):
         if os.path.exists(self.FileName):
@@ -93,8 +116,7 @@ class FileParser:
         Header = input("\n\tHeader: ").split(',')
 
         with open(self.FileName, 'w', encoding='utf-8', newline='') as Data:
-            csv.DictWriter(Data, fieldnames=list(map(
-                lambda str: str[:-1] if str[-1] == ' ' else (str[1:] if str[0] == ' ' else str), Header))).writeheader()
+            csv.DictWriter(Data, fieldnames=list(map(lambda str: ' '.join(str.split()), Header))).writeheader()
 
     def RemoveFile(self):
         if os.path.exists(self.FileName):
@@ -103,7 +125,7 @@ class FileParser:
             self.ConsoleError("The file was not found")
 
     def ConsoleError(self, Message):
-        print(f"{self.NL}{self.TB}CONSOLE ERROR: {Message}")
+        print(f"\n\tCONSOLE ERROR: {Message}")
 
     def CreatePath(self, FileName):
         return f"{self.Dir}\\{FileName}"
@@ -114,11 +136,51 @@ class FileParser:
         else:
             self.ConsoleError("The directory was not found")
 
+    def PrintFilesIntoDirectory(self):
+        for FileName in os.listdir(self.Dir):
+            print(f"\n\t{FileName}")
+
     def MakeDirectory(self, NewDir):
         os.mkdir(NewDir)
 
     def RemoveDirectory(self, Dir):
         os.rmdir(f"{Dir}")
+
+    def ClearDirectory(self):
+        FilesList = os.listdir(self.Dir)
+
+        print("\n\tFiles in the directory:")
+
+        for FileName in FilesList:
+            print(f"\n\t\t{FileName}")
+
+        while True:
+            UserInput = input(f"\n\tAre you sure? Y / n: ")
+
+            if UserInput == 'Y':
+                for FileName in FilesList:
+                    os.remove(f"{self.Dir}\\{FileName}")
+                break
+
+            elif UserInput == 'n':
+                break
+
+    def PrintCommandsList(self):
+        for Command in self.FileCommandsDict.keys():
+            print(f"\n\t{Command}:")
+
+            Parameters = self.FileCommandsDict[Command][2]
+
+            for Description in Parameters.keys():
+                print(f"\t\t{Description}: {Parameters[Description]}")
+
+        for Command in self.ConsoleCommandsDict.keys():
+            print(f"\n\t{Command}:")
+
+            Parameters = self.ConsoleCommandsDict[Command][2]
+
+            for Description in Parameters.keys():
+                print(f"\t\t{Description}: {Parameters[Description]}")
 
     def Exit(self):
         self.RunConsole = 0
