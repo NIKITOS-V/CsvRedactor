@@ -3,12 +3,11 @@ import os
 
 
 class FileParser:
-
     def __init__(self):
         self.Dir = f"{os.path.abspath(os.curdir)}\\Data"
 
         self.FileCommandsDict = {
-            'read': [self.ReadFile, 2,
+            'print': [self.PrintFile, 2,
                      {'Description': 'Выводит данные файла в консоль',
                       'Required parameters': 'Имя файла'}
                      ],
@@ -27,6 +26,7 @@ class FileParser:
             'clear': [self.Clear, 1, {'Description': 'Очищает консоль'}],
             'commands': [self.PrintCommandsList, 1, {'Description': 'Выводит список всех команд'}],
             'dir': [self.PrintFilesIntoDirectory, 1, {'Description': 'Выводит список файлов в текущей директории'}],
+            'path': [self.PrintPathToDirectory, 1, {'Description': 'Выводит полный путь к текущей директории'}],
             'change_dir': [self.ChangeDirectory, 2,
                            {'Description': 'Меняет директорию для работы',
                             'Required parameters': 'Полный путь до директории',
@@ -100,17 +100,50 @@ class FileParser:
                     else:
                         self.ConsoleError("Unknown command")
 
-    def ReadFile(self):
+    def PrintFile(self):
+        Output = ''
+
+        for Count, List in enumerate(self.ReadFile(1)):
+            for Value in List:
+                Output += f"{Value:20}"
+
+            print(f"\n\t{Count} {Output}")
+
+            Output = ''
+
+    def ReadFile(self, TypeOfReading):
         if os.path.exists(self.FileName):
             with open(self.FileName, 'r', encoding='utf-8') as Data:
-                for Dict in list(csv.DictReader(Data)):
-                    print(Dict)
+                ReadData = csv.DictReader(Data)
+
+                if TypeOfReading == 0:
+                    Header = list(ReadData.fieldnames)
+                    DataList = list(ReadData)
+                    DataList.insert(0, Header)
+
+                elif TypeOfReading == 1:
+                    DataList = list(map(lambda Dict: list(Dict.values()), list(ReadData)))
+                    DataList.insert(0, list(ReadData.fieldnames))
+
+                return DataList
         else:
             self.ConsoleError("The file was not found")
 
-    def SystemReadFile(self):
-        with open(self.FileName, 'r', encoding='utf-8') as Data:
-            return list(csv.DictReader(Data))
+    def AppToFile(self):
+        if os.path.exists(self.FileName):
+            Data = self.ReadFile(0)
+            NumberRows = len(Data)
+
+            StartAppend = 'Y'
+
+            while StartAppend == 'Y':
+                while True:
+                    StartAppend = input(f"\n\t")
+
+
+
+        else:
+            self.ConsoleError("The file was not found")
 
     def CreateFile(self):
         Header = input("\n\tHeader: ").split(',')
@@ -135,6 +168,9 @@ class FileParser:
             self.Dir = NewDir
         else:
             self.ConsoleError("The directory was not found")
+
+    def PrintPathToDirectory(self):
+        print(f"\n\t{self.Dir}")
 
     def PrintFilesIntoDirectory(self):
         for FileName in os.listdir(self.Dir):
