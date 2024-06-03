@@ -4,6 +4,7 @@ from copy import deepcopy
 
 
 class FileParser:
+    ProgramDir = os.path.abspath(os.curdir)
     SupportedExtension = 'csv'
     Yes = 'Y'
     Not = 'n'
@@ -26,6 +27,10 @@ class FileParser:
                        {'Description': 'Меняет информацию в рядах',
                         'Required parameters': 'Имя файла'}
                        ],
+            'copy': [self.CopyRow, 3,
+                     {'Description': 'Копирует ряд из одного файла в другой',
+                      'Required parameters': 'Имя файлов'}
+                     ],
             'del': [self.RemoveFile, 2,
                     {'Description': 'Удаляет файл',
                      'Required parameters': 'Имя файла'}
@@ -49,9 +54,10 @@ class FileParser:
         }
         self.RunConsole = 1
 
-        self.Dir = f"{os.path.abspath(os.curdir)}\\Data"
+        self.SaveDir = f"{self.ProgramDir}\\Data"
 
-        self.FileName = None
+        if not os.path.exists(self.SaveDir):
+            os.mkdir(self.SaveDir)
 
     def MainLoop(self):
         while self.RunConsole:
@@ -67,7 +73,7 @@ class FileParser:
                     Manual = self.CommandsDict[UserInput[0]]
 
                     if LenUserInput == Manual[1]:
-                        Manual[0](UserInput)
+                        Manual[0](None if LenUserInput == 1 else (UserInput[1] if LenUserInput == 2 else UserInput[1:]))
 
                     elif LenUserInput < Manual[1]:
                         self.ConsoleError("There is too little input data")
@@ -78,9 +84,9 @@ class FileParser:
                 else:
                     self.ConsoleError("Unknown command")
 
-    def PrintFile(self, UserInput):
+    def PrintFile(self, FileName):
         Output = ''
-        Path = self.CreatePath(UserInput[1])
+        Path = self.CreatePath(FileName)
 
         if self.ExpansionIsCorrect(Path):
             if self.PathIsCorrect(Path):
@@ -109,108 +115,172 @@ class FileParser:
             except TypeError:
                 self.ConsoleError("File without header")
 
-    def AppendToFile(self, UserInput):
-        Path = self.CreatePath(UserInput[1])
+    def AppendToFile(self, FileName):
+        Path = self.CreatePath(FileName)
 
-        if self.ExpansionIsCorrect(UserInput[1]):
+        if self.ExpansionIsCorrect(FileName):
             if self.PathIsCorrect(Path):
                 OldData, Head = self.ReadFile(Path, 0)
                 NewData = deepcopy(OldData)
 
                 Row = len(OldData) + 1
 
-                try:
-                    Data = open(Path, 'w', encoding='utf-8', newline='')
+                while True:
+                    ContinueAppend = input(f"\n\tContinue? {self.Yes} / {self.Not}: ")
 
-                    while True:
-                        ContinueAppend = input(f"\n\tContinue? {self.Yes} / {self.Not}: ")
+                    if ContinueAppend == self.Yes:
+                        Dict = {Colum: '' for Colum in Head}
 
-                        if ContinueAppend == self.Yes:
-                            Dict = {Colum: '' for Colum in Head}
+                        print(f"\n\tRow: {Row}\n")
 
-                            print(f"\n\tRow: {Row}\n")
+                        for Colum in Head:
+                            Dict[Colum] = input(f"\t\t{Colum}: ")
 
-                            for Colum in Head:
-                                Dict[Colum] = input(f"\t\t{Colum}: ")
+                        NewData.append(Dict)
+                        Row += 1
 
-                            NewData.append(Dict)
-                            Row += 1
+                    elif ContinueAppend == self.Not:
+                        try:
+                            with open(Path, 'w', encoding='utf-8', newline='') as Data:
+                                ReadData = csv.DictWriter(Data, fieldnames=Head)
+                                ReadData.writeheader()
+                                ReadData.writerows(NewData)
 
-                        elif ContinueAppend == self.Not:
-                            ReadData = csv.DictWriter(Data, fieldnames=Head)
-                            ReadData.writeheader()
-                            ReadData.writerows(OldData)
-                            Data.close()
-                            break
+                            print("\n\tSuccessfully!")
 
-                except Exception:
-                    with open(Path, 'w', encoding='utf-8', newline='') as Data:
-                        Data = csv.DictWriter(Data, fieldnames=Head)
-                        Data.writeheader()
-                        Data.writerows(OldData)
+                        except Exception:
+                            with open(Path, 'w', encoding='utf-8', newline='') as Data:
+                                Data = csv.DictWriter(Data, fieldnames=Head)
+                                Data.writeheader()
+                                Data.writerows(OldData)
 
-    def ChangeFile(self, UserInput):
-        Path = self.CreatePath(UserInput[1])
+                            self.ConsoleError("Failed to execute")
+                        break
 
-        if self.ExpansionIsCorrect(UserInput[1]):
+    def ChangeFile(self, FileName):
+        Path = self.CreatePath(FileName)
+
+        if self.ExpansionIsCorrect(FileName):
             if self.PathIsCorrect(Path):
                 OldData, OldHead = self.ReadFile(Path, 0)
                 NewData, NewHead = deepcopy(OldData), deepcopy(OldHead)
                 MaxRow = len(OldData) + 1
 
-                try:
-                    Data = open(Path, 'w', encoding='utf-8', newline='')
+                while True:
+                    ContinueAppend = input(f"\n\tContinue? {self.Yes} / {self.Not}: ")
 
-                    while True:
-                        ContinueAppend = input(f"\n\tContinue? {self.Yes} / {self.Not}: ")
-
-                        if ContinueAppend == self.Yes:
-                            Row = input("\n\tRow number: ")
+                    if ContinueAppend == self.Yes:
+                        try:
+                            Row = int(input("\n\tRow number: "))
                             print()
 
-                            try:
-                                Row = int(Row)
+                            if Row == 1:
+                                for Index, Colum in enumerate(NewHead):
+                                    NewHead[Index] = input(f"\t\tRename '{Colum}': ")
 
-                                if Row == 1:
-                                    for Index, Colum in enumerate(NewHead):
-                                        NewHead[Index] = input(f"\t\tRename '{Colum}': ")
+                                NewData = list(map(
+                                    lambda Dict: {Key: Value for Key, Value in zip(NewHead, Dict.values())},
+                                    OldData))
 
-                                    NewData = list(map(
-                                        lambda Dict: {Key: Value for Key, Value in zip(NewHead, Dict.values())},
-                                        OldData))
+                            elif 1 < Row < MaxRow:
+                                for Colum in NewHead:
+                                    NewData[Row - 2][Colum] = input(f"\t\t{Colum}: ")
+                            else:
+                                self.ConsoleError("The row does not exist")
 
-                                elif 1 < Row < MaxRow:
-                                    for Colum in NewHead:
-                                        NewData[Row - 2][Colum] = input(f"\t\t{Colum}: ")
-                                else:
-                                    self.ConsoleError("The row does not exist")
+                        except ValueError:
+                            self.ConsoleError("The row must have an int value")
 
-                            except ValueError:
-                                self.ConsoleError("The row must have an int value")
+                    elif ContinueAppend == self.Not:
+                        try:
+                            with open(Path, 'w', encoding='utf-8', newline='') as Data:
+                                ReadData = csv.DictWriter(Data, fieldnames=NewHead)
+                                ReadData.writeheader()
+                                ReadData.writerows(NewData)
 
-                        elif ContinueAppend == self.Not:
-                            ReadData = csv.DictWriter(Data, fieldnames=NewHead)
-                            ReadData.writeheader()
-                            ReadData.writerows(NewData)
-                            Data.close()
-                            break
+                            print("\n\tSuccessfully!")
 
-                except Exception:
-                    with open(Path, 'w', encoding='utf-8', newline='') as Data:
-                        Data = csv.DictWriter(Data, fieldnames=OldHead)
-                        Data.writeheader()
-                        Data.writerows(OldData)
+                        except Exception:
+                            with open(Path, 'w', encoding='utf-8', newline='') as Data:
+                                Data = csv.DictWriter(Data, fieldnames=OldHead)
+                                Data.writeheader()
+                                Data.writerows(OldData)
 
-    def CreateFile(self, UserInput, Separate='\n\t'):
+                            self.ConsoleError("Failed to execute")
+                        break
+
+    def CreateFile(self, FileName, Separate='\n\t'):
         Header = input(f"{Separate}Header: ").split(',')
+        try:
+            with open(self.CreatePath(FileName), 'w', encoding='utf-8', newline='') as Data:
+                csv.DictWriter(Data, fieldnames=list(map(lambda Str: Str.strip(), Header))).writeheader()
 
-        with open(self.CreatePath(UserInput[1]), 'w', encoding='utf-8', newline='') as Data:
-            csv.DictWriter(Data, fieldnames=list(map(lambda Str: Str.strip(), Header))).writeheader()
+            print("\n\tSuccessfully!")
 
-        print("\n\tSuccessfully!")
+        except FileExistsError:
+            self.ConsoleError("Failed to execute")
 
-    def RemoveFile(self, UserInput):
-        Path = self.CreatePath(UserInput[1])
+    def CopyRow(self, FileNames):
+        FirstPath, SecondPath = self.CreatePath(FileNames[0]), self.CreatePath(FileNames[1])
+
+        if self.ExpansionIsCorrect(FirstPath):
+            if self.ExpansionIsCorrect(SecondPath):
+                if self.PathIsCorrect(FirstPath):
+                    if self.PathIsCorrect(SecondPath):
+
+                        FirstData, FirstHead = self.ReadFile(FirstPath, 0)
+                        SecondData, SecondHead = self.ReadFile(SecondPath, 0)
+                        NewSecondData, NewSecondHead = deepcopy(SecondData), deepcopy(SecondHead)
+
+                        MaxRow = len(FirstData) + 1
+
+                        if len(FirstHead) == len(SecondHead):
+                            while True:
+                                ContinueCopy = input(f"\n\tContinue? {self.Yes} / {self.Not}: ")
+
+                                if ContinueCopy == self.Yes:
+                                    try:
+                                        Row = int(input("\n\tRow number: "))
+
+                                        if 1 < Row < MaxRow:
+                                            NewSecondData.append(FirstData[Row - 2])
+
+                                        elif Row == 1:
+                                            NewSecondHead = FirstHead
+
+                                        else:
+                                            self.ConsoleError("The row does not exist")
+
+                                    except ValueError:
+                                        self.ConsoleError("The row must have an int value")
+
+                                elif ContinueCopy == self.Not:
+                                    try:
+                                        Lambda = (lambda Dict: {Key: Value for Key, Value in
+                                                                zip(NewSecondHead, Dict.values())})
+
+                                        NewSecondData = list(map(Lambda, NewSecondData))
+
+                                        with open(SecondPath, 'w', encoding='utf-8', newline='') as Data:
+                                            ReadData = csv.DictWriter(Data, fieldnames=NewSecondHead)
+                                            ReadData.writeheader()
+                                            ReadData.writerows(NewSecondData)
+
+                                        print("\n\tSuccessfully!")
+
+                                    except Exception:
+                                        with open(SecondPath, 'w', encoding='utf-8', newline='') as Data:
+                                            Data = csv.DictWriter(Data, fieldnames=SecondHead)
+                                            Data.writeheader()
+                                            Data.writerows(SecondData)
+
+                                        self.ConsoleError("Failed to execute")
+                                    break
+                        else:
+                            self.ConsoleError("The headings vary in length")
+
+    def RemoveFile(self, FileName):
+        Path = self.CreatePath(FileName)
 
         if self.PathIsCorrect(Path):
             os.remove(Path)
@@ -221,7 +291,7 @@ class FileParser:
         print(f"{Separate}CONSOLE ERROR: {Message}")
 
     def CreatePath(self, FileName):
-        return f"{self.Dir}\\{FileName}"
+        return f"{self.SaveDir}\\{FileName}"
 
     def PathIsCorrect(self, Path, PrintError=0):
         if os.path.exists(Path):
@@ -241,23 +311,23 @@ class FileParser:
 
         return 0
 
-    def ChangeDirectory(self, UserInput):
-        if self.PathIsCorrect(UserInput[1]):
-            self.Dir = UserInput[1]
+    def ChangeDirectory(self, FileName):
+        if self.PathIsCorrect(FileName):
+            self.SaveDir = FileName
 
             print("\n\tSuccessfully!")
 
     def PrintPathToDirectory(self, *args, Separate='\n\t'):
-        print(f"{Separate}{self.Dir}")
+        print(f"{Separate}{self.SaveDir}")
 
     def PrintFilesIntoDirectory(self, *args, Separate='\n\t'):
-        for FileName in os.listdir(self.Dir):
+        for FileName in os.listdir(self.SaveDir):
             print(f"{Separate}{FileName}")
 
-    def MakeDirectory(self, UserInput):
-        if self.PathIsCorrect(UserInput[1][:UserInput[1].rfind("\\")]):
+    def MakeDirectory(self, FileName):
+        if self.PathIsCorrect(FileName[:FileName.rfind("\\")]):
             try:
-                os.mkdir(UserInput[1])
+                os.mkdir(FileName)
 
                 print("\n\tSuccessfully!")
 
@@ -266,7 +336,9 @@ class FileParser:
 
     def RemoveDirectory(self, *args):
         try:
-            os.rmdir(self.Dir)
+            os.rmdir(self.SaveDir)
+
+            self.SaveDir = deepcopy(self.ProgramDir)
 
             print("\n\tSuccessfully!")
 
@@ -282,7 +354,7 @@ class FileParser:
             UserInput = input(f"\n\tAre you sure? {self.Yes} / {self.Not}: ")
 
             if UserInput == self.Yes:
-                for FileName in os.listdir(self.Dir):
+                for FileName in os.listdir(self.SaveDir):
                     os.remove(self.CreatePath(FileName))
 
                 print("\n\tSuccessfully!")
