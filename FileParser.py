@@ -11,66 +11,77 @@ class FileParser:
 
     def __init__(self):
         self.CommandsDict = {
-            'print': [self.PrintFile, 2,
+            'print': [self.PrintFile, 2, 1,
                       {'Description': 'Выводит данные файла в консоль',
                        'Required parameters': 'Имя файла'}
                       ],
-            'create': [self.CreateFile, 2,
+            'create': [self.CreateFile, 2, 1,
                        {'Description': 'Создаёт файл в установленной директории',
                         'Required parameters': 'Имя файла'}
                        ],
-            'append': [self.AppendToFile, 2,
+            'append': [self.AppendToFile, 2, 1,
                        {'Description': 'Добавляет информацию в файл',
                         'Required parameters': 'Имя файла'}
                        ],
-            'change': [self.ChangeFile, 2,
+            'change': [self.ChangeFile, 2, 1,
                        {'Description': 'Меняет информацию в рядах',
                         'Required parameters': 'Имя файла'}
                        ],
-            'copy': [self.CopyRow, 3,
+            'copy': [self.CopyRow, 3, 2,
                      {'Description': 'Копирует ряд из одного файла в другой',
                       'Required parameters': 'Имя файлов'}
                      ],
-            'del': [self.RemoveFile, 2,
+            'del': [self.RemoveFile, 2, 1,
                     {'Description': 'Удаляет файл',
                      'Required parameters': 'Имя файла'}
                     ],
-            'exit': [self.Exit, 1, {'Description': 'Выводит данные файла в консоль'}],
-            'clear': [self.Clear, 1, {'Description': 'Очищает консоль'}],
-            'commands': [self.PrintCommandsList, 1, {'Description': 'Выводит список всех команд'}],
-            'dir': [self.PrintFilesIntoDirectory, 1, {'Description': 'Выводит список файлов в текущей директории'}],
-            'path': [self.PrintPathToDirectory, 1, {'Description': 'Выводит полный путь к текущей директории'}],
-            'cd': [self.ChangeDirectory, 2,
+            'exit': [self.Exit, 1, 1, {'Description': 'Завершает работу программы'}],
+            'clear': [self.Clear, 1, 1, {'Description': 'Очищает консоль'}],
+            'commands': [self.PrintCommandsList, 1, 1, {'Description': 'Выводит список всех команд'}],
+            'dir': [self.PrintFilesIntoDirectory, 1, 1, {'Description': 'Выводит список файлов в текущей директории'}],
+            'path': [self.PrintPathToDirectory, 1, 1, {'Description': 'Выводит полный путь к текущей директории'}],
+            'cd': [self.ChangeDirectory, 2, 1,
                    {'Description': 'Меняет директорию для работы',
-                    'Required parameters': 'Полный путь до директории',
-                    }
+                    'Required parameters': 'Полный путь до директории'}
                    ],
-            'mkdir': [self.MakeDirectory, 2,
-                      {'Description': 'Создаёт директорию',
-                       'Required parameters': 'Полный путь до директории'}
+            'ndir': [self.NextDir, 2, 1,
+                     {'Description': 'Переходит к следующей директории текущей директории',
+                      'Required parameters': 'Имя директории'}
+                     ],
+            'pdir': [self.LastDir, 1, 1, {'Description': 'Выходит текущей директории'}],
+            'mkdir': [self.MakeDirectory, 2, 1,
+                      {'Description': 'Создаёт новую директорию в текущей директории',
+                       'Required parameters': 'Имя директории'}
                       ],
-            'rmdir': [self.RemoveDirectory, 1, {'Description': 'Удаляет текущую директорию'}],
-            'clrdir': [self.ClearDirectory, 1, {'Description': 'Очищает директорию'}]
+            'rmdir': [self.RemoveDirectory, 2, 1,
+                      {'Description': 'Удаляет директорию в текущей директории',
+                       'Required parameters': 'Имя директории'}
+                      ],
+            'clrdir': [self.ClearDirectory, 1, 1, {'Description': 'Очищает директорию'}]
         }
         self.RunConsole = 1
 
         self.SaveDir = f"{self.ProgramDir}\\Data"
 
-        if not os.path.exists(self.SaveDir):
+        if not self.PathIsCorrect(self.SaveDir, PrintError=0):
             os.mkdir(self.SaveDir)
 
     def MainLoop(self):
         while self.RunConsole:
-            UserInput = input("\nCONSOLE: ").split()
+            UserInput = input("\nCONSOLE: ")
+            SplitUserInput = UserInput.split(maxsplit=1)
 
-            LenUserInput = len(UserInput)
+            LenUserInput = len(SplitUserInput)
 
             if LenUserInput == 0:
                 self.ConsoleError("The console cannot be empty")
 
             else:
-                if UserInput[0] in self.CommandsDict.keys():
-                    Manual = self.CommandsDict[UserInput[0]]
+                if SplitUserInput[0] in self.CommandsDict.keys():
+                    Manual = self.CommandsDict[SplitUserInput[0]]
+
+                    UserInput = UserInput.split(maxsplit=Manual[2])
+                    LenUserInput = len(UserInput)
 
                     if LenUserInput == Manual[1]:
                         Manual[0](None if LenUserInput == 1 else (UserInput[1] if LenUserInput == 2 else UserInput[1:]))
@@ -90,11 +101,13 @@ class FileParser:
 
         if self.ExpansionIsCorrect(Path):
             if self.PathIsCorrect(Path):
+                print()
+
                 for Count, List in enumerate(self.ReadFile(Path, 1)):
                     for Value in List:
                         Output += f"{Value:20}"
 
-                    print(f"\n\t{Count + 1} {Output}")
+                    print(f"\t{Count + 1} {Output}")
 
                     Output = ''
 
@@ -290,14 +303,14 @@ class FileParser:
     def ConsoleError(self, Message, Separate='\n\t'):
         print(f"{Separate}CONSOLE ERROR: {Message}")
 
-    def CreatePath(self, FileName):
-        return f"{self.SaveDir}\\{FileName}"
+    def CreatePath(self, Name):
+        return f"{self.SaveDir}\\{Name}"
 
-    def PathIsCorrect(self, Path, PrintError=0):
+    def PathIsCorrect(self, Path, PrintError=1):
         if os.path.exists(Path):
             return 1
 
-        if PrintError:
+        elif PrintError:
             self.ConsoleError("Not found")
 
         return 0
@@ -311,39 +324,40 @@ class FileParser:
 
         return 0
 
-    def ChangeDirectory(self, FileName):
-        if self.PathIsCorrect(FileName):
-            self.SaveDir = FileName
+    def ChangeDirectory(self, DirPath):
+        if self.PathIsCorrect(DirPath):
+            self.SaveDir = '\\'.join(filter(lambda Str: Str != '', DirPath.replace('/', '\\').split('\\')))
 
             print("\n\tSuccessfully!")
 
     def PrintPathToDirectory(self, *args, Separate='\n\t'):
         print(f"{Separate}{self.SaveDir}")
 
-    def PrintFilesIntoDirectory(self, *args, Separate='\n\t'):
+    def PrintFilesIntoDirectory(self, *args, Separate='\t'):
+        print()
         for FileName in os.listdir(self.SaveDir):
             print(f"{Separate}{FileName}")
 
-    def MakeDirectory(self, FileName):
-        if self.PathIsCorrect(FileName[:FileName.rfind("\\")]):
-            try:
-                os.mkdir(FileName)
-
-                print("\n\tSuccessfully!")
-
-            except FileExistsError:
-                self.ConsoleError("Failed to execute")
-
-    def RemoveDirectory(self, *args):
+    def MakeDirectory(self, DirName):
         try:
-            os.rmdir(self.SaveDir)
-
-            self.SaveDir = deepcopy(self.ProgramDir)
+            os.mkdir(self.CreatePath(DirName))
 
             print("\n\tSuccessfully!")
 
         except FileExistsError:
             self.ConsoleError("Failed to execute")
+
+    def RemoveDirectory(self, DirName):
+        Path = self.CreatePath(DirName)
+
+        if self.PathIsCorrect(Path):
+            try:
+                os.rmdir(Path)
+
+                print("\n\tSuccessfully!")
+
+            except FileExistsError:
+                self.ConsoleError("Failed to execute")
 
     def ClearDirectory(self, *args):
         print("\n\tFiles in the directory:")
@@ -366,11 +380,26 @@ class FileParser:
                 print("\n\tThe operation was canceled")
                 break
 
+    def NextDir(self, DirName):
+        self.ChangeDirectory(self.CreatePath(DirName))
+
+    def LastDir(self, *args):
+        NewSaveDir = self.SaveDir[:self.SaveDir.rfind('\\')]
+
+        if NewSaveDir[-1] == ':':
+            NewSaveDir += '\\'
+            self.ConsoleError('Unable to navigate')
+
+        else:
+            print("\n\tSuccessfully!")
+
+        self.SaveDir = NewSaveDir
+
     def PrintCommandsList(self, *args):
         for Command in self.CommandsDict.keys():
             print(f"\n\t{Command}:")
 
-            Parameters = self.CommandsDict[Command][2]
+            Parameters = self.CommandsDict[Command][3]
 
             for Description in Parameters.keys():
                 print(f"\t\t{Description}: {Parameters[Description]}")
